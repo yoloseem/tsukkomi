@@ -43,7 +43,7 @@ def check_type(value: typing.Any, hint: typing.Optional[type]) -> bool:
         actual_type, correct = check_callable(value, hint)
     elif issubclass(hint, typing.Tuple):
         actual_type, correct = check_tuple(value, hint)
-    elif issubclass(hint, typing.Union):
+    elif type(hint) is type(typing.Union):  # flake8: disable=E721
         actual_type, correct = check_union(value, hint)
     else:
         correct = isinstance(value, hint)
@@ -98,7 +98,7 @@ def check_callable(callable_: typing.Callable, hint: type) -> bool:
             hint.__args__ is Ellipsis,
             hint.__args__ == arg_types,
         }),
-        any({
+        hasattr(hint, '__result__') and any({
             hint.__result__ is None,
             hint.__result__ in (typing.Any, return_type)
         })
@@ -151,11 +151,15 @@ def check_union(data: typing.Union, hint: type) -> bool:
     :param hint: assumed type of given ``data``
 
     """
-    r = any(check_type(data, t)[1] for t in hint.__union_params__)
+    try:
+        types = hint.__union_params__
+    except AttributeError:
+        types = hint.__args__
+    r = any(check_type(data, t)[1] for t in types)
     if not r:
         raise TypeError(
             'expected one of {0!r}, found: {1!r}'.format(
-                hint.__union_params__, type(data)
+                types, type(data)
             )
         )
     return hint, r
